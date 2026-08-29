@@ -1,0 +1,45 @@
+# ---------------------------------------------------------------------------
+# SECRETS — never commit. .env holds your CFBD API key.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ---------------------------------------------------------------------------
+# Regenerable artifacts. Both are rebuilt by check_api + train, and both get
+# large fast. Keep the directories (via .gitkeep) so a fresh clone still runs.
+# ---------------------------------------------------------------------------
+data_cache/*
+!data_cache/.gitkeep
+models_store/*
+!models_store/.gitkeep
+
+# ---------------------------------------------------------------------------
+# NOT ignored, deliberately: content/cfb/
+#
+# That's the forecast ledger. The whole point of committing it is that GitHub's
+# commit timestamp becomes third-party attestation that a forecast existed
+# before the game was played. Ignoring it would throw away the only thing in
+# this repo that can't be reproduced after the fact.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Editor / OS noise
+# ---------------------------------------------------------------------------
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.bak
