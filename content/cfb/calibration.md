@@ -6,37 +6,36 @@ _Pre-registered college football forecasts, live forecasts only. Every row was c
 
 | metric | value |
 |---|---:|
-| forecasts graded | 40 |
-| hit rate | 0.800 |
-| average confidence | 0.766 |
-| Brier | 0.1391 |
-| log loss | 0.4371 |
-| calibration error (ECE) | 0.0695 |
+| forecasts graded | 43 |
+| hit rate | 0.814 |
+| average confidence | 0.764 |
+| Brier | 0.1343 |
+| log loss | 0.4278 |
+| calibration error (ECE) | 0.0827 |
 
-The number that matters is the gap between the last two: we said **76.6%** on average and hit **80.0%** (+3.4%). Being right more often than we claimed is as much a calibration miss as the reverse — it just flatters us.
+The number that matters is the gap between the last two: we said **76.4%** on average and hit **81.4%** (+5.0%). Being right more often than we claimed is as much a calibration miss as the reverse — it just flatters us.
 
 ### By confidence tier
 
-| tier | picks | advertised | hit rate | gap | ±1 SE |
-|---|---:|---:|---:|---:|---:|
-| Lean | 12 | 0.941 | 0.917 | -0.025 | 0.080 |
-| Pass | 28 | 0.691 | 0.750 | +0.059 | 0.082 |
+| data depth | tier | picks | advertised | hit rate | gap | ±1 SE |
+|---|---|---:|---:|---:|---:|---:|
+| none | Lean | 12 | 0.941 | 0.917 | -0.025 | 0.080 |
+| none | Pass | 31 | 0.696 | 0.774 | +0.078 | 0.075 |
+
+**Data depth** is how much football the ratings are built on. In the opening weeks a team's rating comes mostly from preseason roster signals rather than results, so the model caps how confident a label it will publish — which is why an early-season tier can advertise a probability well above its name. Depths are reported separately because pooling them would average two different things.
 
 ## Margin
 
 | metric | value |
 |---|---:|
-| forecasts graded | 40 |
-| CRPS | 11.318 |
-| mean absolute error | 16.58 pts |
-| bias (predicted − actual) | -5.98 pts |
-| inside ±1σ | 0.600 (target 0.683) |
-| inside ±2σ | 0.900 (target 0.954) |
+| forecasts graded | 43 |
+| CRPS | 10.974 |
+| mean absolute error | 16.08 pts |
+| bias (predicted − actual) | -5.46 pts |
+| inside ±1σ | 0.605 (target 0.683) |
+| inside ±2σ | 0.907 (target 0.954) |
 
 Coverage well under target means the margin model is overconfident — the stated uncertainty is too narrow. Over target means it's hedging.
-
-
-_6 forecast(s) still open, 0 void._
 
 
 ---
