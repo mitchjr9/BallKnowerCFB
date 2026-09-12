@@ -2,10 +2,10 @@
   "schema_version": "1",
   "batch": "cfb-2026-09-12",
   "emitter": "ballknower.quad",
-  "generated_ts": "2026-09-12T05:59:23+00:00",
+  "generated_ts": "2026-09-12T06:06:25+00:00",
   "record_count": 208,
-  "chain_head": "3f548267a2d85f4afcb3c4d7a40da23ada0d0627dc21615e0c8f1a4c58cea75d",
-  "code_commit": "6fd0dd6",
+  "chain_head": "91a8d31e18186dea30d5d3505b58a19362c56492d793b15fd42e419a4052be1b",
+  "code_commit": "e329520",
   "config_hash": "60856fbf9715df4c",
   "provenance_counts": {
     "live": 208
