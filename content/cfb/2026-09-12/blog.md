@@ -1,6 +1,6 @@
 # Week 2: What the Model Sees
 
-_104 games on the board. 14 the model feels strongly about, 27 it genuinely can't separate._
+_47 games on the board. 0 the model feels strongly about, 15 it genuinely can't separate._
 
 ## The one to watch
 
@@ -8,9 +8,9 @@ _104 games on the board. 14 the model feels strongly about, 27 it genuinely can'
 
 ## Where the model is confident
 
-- **Ole Miss over Charlotte** (99%, 🔒 Lock) — a 496-point Elo edge to Ole Miss, a 0.26 per-play efficiency edge to Ole Miss, and a clear preseason roster edge to Ole Miss.
-- **Ohio State over Kent State** (98%, 🔒 Lock) — a 405-point Elo edge to Ohio State, a 0.54 per-play efficiency edge to Ohio State, and a clear preseason roster edge to Ohio State.
-- **Georgia over Western Kentucky** (98%, 🔒 Lock) — a 361-point Elo edge to Georgia, a 0.33 per-play efficiency edge to Georgia, and a clear preseason roster edge to Georgia.
+- **Ole Miss over Charlotte** (99%, 🎯 Lean) — a 496-point Elo edge to Ole Miss, a 0.26 per-play efficiency edge to Ole Miss, and a clear preseason roster edge to Ole Miss.
+- **Georgia over Western Kentucky** (98%, 🎯 Lean) — a 361-point Elo edge to Georgia, a 0.33 per-play efficiency edge to Georgia, and a clear preseason roster edge to Georgia.
+- **Notre Dame over Rice** (97%, 🎯 Lean) — a 370-point Elo edge to Notre Dame, a 0.27 per-play efficiency edge to Notre Dame, and a clear preseason roster edge to Notre Dame.
 
 ## Genuine coin flips
 
@@ -22,7 +22,7 @@ Games where the honest answer is that we don't know:
 
 ## A note on early-season confidence
 
-104 of these teams have almost no 2026 football on the books, so their ratings still lean on preseason roster signals — recruiting, returning production, transfers — rather than results. The model knows this and caps how confident it's allowed to be. Ratings firm up considerably by early October.
+94 of these teams have almost no 2026 football on the books, so their ratings still lean on preseason roster signals — recruiting, returning production, transfers — rather than results. The model knows this and caps how confident it's allowed to be. Ratings firm up considerably by early October.
 
 ## How to read this
 
