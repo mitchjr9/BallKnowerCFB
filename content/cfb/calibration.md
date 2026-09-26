@@ -6,21 +6,21 @@ _Pre-registered college football forecasts, live forecasts only. Every row was c
 
 | metric | value |
 |---|---:|
-| forecasts graded | 90 |
-| hit rate | 0.778 |
-| average confidence | 0.740 |
-| Brier | 0.1455 |
-| log loss | 0.4509 |
-| calibration error (ECE) | 0.0700 |
+| forecasts graded | 147 |
+| hit rate | 0.803 |
+| average confidence | 0.739 |
+| Brier | 0.1385 |
+| log loss | 0.4333 |
+| calibration error (ECE) | 0.0733 |
 
-The number that matters is the gap between the last two: we said **74.0%** on average and hit **77.8%** (+3.8%). Being right more often than we claimed is as much a calibration miss as the reverse — it just flatters us.
+The number that matters is the gap between the last two: we said **73.9%** on average and hit **80.3%** (+6.4%). Being right more often than we claimed is as much a calibration miss as the reverse — it just flatters us.
 
 ### By confidence tier
 
 | data depth | tier | picks | advertised | hit rate | gap | ±1 SE |
 |---|---|---:|---:|---:|---:|---:|
-| none | Lean | 21 | 0.936 | 0.952 | +0.016 | 0.046 |
-| none | Pass | 69 | 0.680 | 0.725 | +0.045 | 0.054 |
+| none | Lean | 35 | 0.938 | 0.971 | +0.033 | 0.028 |
+| none | Pass | 112 | 0.677 | 0.750 | +0.073 | 0.041 |
 
 **Data depth** is how much football the ratings are built on. In the opening weeks a team's rating comes mostly from preseason roster signals rather than results, so the model caps how confident a label it will publish — which is why an early-season tier can advertise a probability well above its name. Depths are reported separately because pooling them would average two different things.
 
@@ -28,66 +28,76 @@ The number that matters is the gap between the last two: we said **74.0%** on av
 
 | metric | value |
 |---|---:|
-| forecasts graded | 90 |
-| CRPS | 9.904 |
-| mean absolute error | 14.10 pts |
-| bias (predicted − actual) | -3.50 pts |
-| inside ±1σ | 0.700 (target 0.683) |
-| inside ±2σ | 0.922 (target 0.954) |
+| forecasts graded | 147 |
+| CRPS | 8.794 |
+| mean absolute error | 12.37 pts |
+| bias (predicted − actual) | -2.20 pts |
+| inside ±1σ | 0.755 (target 0.683) |
+| inside ±2σ | 0.952 (target 0.954) |
 
 Coverage well under target means the margin model is overconfident — the stated uncertainty is too narrow. Over target means it's hedging.
 
-## Last slate (2026-09-12) — 35-12
+## Last slate (2026-09-13) — 48-9
 
 | | pick | said | tier | result |
 |---|---|---:|---|---|
-| ✅ | Ole Miss defeats Charlotte | 99% | Lean | Ole Miss won 41-9 |
-| ✅ | Georgia defeats Western Kentucky | 98% | Lean | Georgia won 70-20 |
-| ✅ | Notre Dame defeats Rice | 97% | Lean | Notre Dame won 52-0 |
-| ✅ | Nebraska defeats Bowling Green | 96% | Lean | Nebraska won 56-7 |
-| ✅ | Washington defeats Utah State | 96% | Lean | Washington won 16-14 |
-| ✅ | Utah defeats Arkansas | 89% | Lean | Utah won 43-10 |
-| ✅ | USC defeats Louisiana | 88% | Lean | USC won 49-30 |
-| ✅ | LSU defeats Louisiana Tech | 87% | Lean | LSU won 45-14 |
-| ✅ | UAB defeats UL Monroe | 86% | Lean | UAB won 26-20 |
-| ✅ | Auburn defeats Southern Miss | 85% | Pass | Auburn won 43-8 |
-| ❌ | Oregon defeats Oklahoma State | 83% | Pass | Oklahoma State won 39-31 |
-| ✅ | Vanderbilt defeats Delaware | 82% | Pass | Vanderbilt won 35-26 |
-| ✅ | Clemson defeats Georgia Southern | 82% | Pass | Clemson won 22-7 |
-| ✅ | Texas A&M defeats Arizona State | 81% | Pass | Texas A&M won 48-20 |
-| ✅ | Texas Tech defeats Oregon State | 81% | Pass | Texas Tech won 35-24 |
-| ✅ | Penn State defeats Temple | 77% | Pass | Penn State won 27-9 |
-| ✅ | Michigan State defeats Eastern Michigan | 76% | Pass | Michigan State won 35-7 |
-| ✅ | Kansas State defeats Washington State | 75% | Pass | Kansas State won 34-7 |
-| ✅ | Hawai'i defeats New Mexico State | 75% | Pass | Hawai'i won 29-19 |
-| ✅ | Florida International defeats Buffalo | 74% | Pass | Florida International won 33-20 |
-| ✅ | Alabama defeats Kentucky | 74% | Pass | Alabama won 45-17 |
-| ✅ | Tulane defeats South Alabama | 69% | Pass | Tulane won 28-24 |
-| ✅ | Pittsburgh defeats UCF | 67% | Pass | Pittsburgh won 12-7 |
-| ✅ | Iowa defeats Iowa State | 67% | Pass | Iowa won 16-13 |
-| ✅ | North Dakota State defeats Air Force | 67% | Pass | North Dakota State won 38-32 |
-| ❌ | East Carolina defeats App State | 67% | Pass | App State won 27-24 |
-| ❌ | Minnesota defeats Mississippi State | 66% | Pass | Mississippi State won 38-13 |
-| ✅ | Fresno State defeats Sacramento State | 65% | Pass | Fresno State won 49-3 |
-| ✅ | Ohio defeats Jacksonville State | 64% | Pass | Ohio won 29-27 |
-| ✅ | Texas defeats Ohio State | 63% | Pass | Texas won 24-23 |
-| ✅ | UCLA defeats San Diego State | 63% | Pass | UCLA won 28-10 |
-| ❌ | Syracuse defeats California | 63% | Pass | California won 21-18 |
-| ❌ | Kennesaw State defeats Georgia State | 61% | Pass | Georgia State won 31-17 |
-| ❌ | Illinois defeats Duke | 61% | Pass | Duke won 31-27 |
-| ✅ | Virginia Tech defeats Old Dominion | 60% | Pass | Virginia Tech won 44-21 |
-| ✅ | Tulsa defeats Sam Houston | 60% | Pass | Tulsa won 23-17 |
-| ✅ | Tennessee defeats Georgia Tech | 60% | Pass | Tennessee won 45-24 |
-| ❌ | UConn defeats Maryland | 59% | Pass | Maryland won 38-14 |
-| ✅ | South Florida defeats Army | 58% | Pass | South Florida won 28-24 |
-| ✅ | Marshall defeats Middle Tennessee | 58% | Pass | Marshall won 28-26 |
-| ✅ | UTSA defeats Texas State | 58% | Pass | UTSA won 31-26 |
-| ❌ | Memphis defeats Boise State | 58% | Pass | Boise State won 38-20 |
-| ❌ | Purdue defeats Wake Forest | 57% | Pass | Wake Forest won 38-36 |
-| ❌ | Oklahoma defeats Michigan | 57% | Pass | Michigan won 17-10 |
-| ✅ | North Texas defeats UNLV | 56% | Pass | North Texas won 44-6 |
-| ❌ | Arizona defeats BYU | 54% | Pass | BYU won 28-17 |
-| ❌ | Navy defeats Florida Atlantic | 51% | Pass | Florida Atlantic won 38-30 |
+| ✅ | Indiana defeats Western Kentucky | 98% | Lean | Indiana won 38-0 |
+| ✅ | Penn State defeats Buffalo | 98% | Lean | Penn State won 55-13 |
+| ✅ | Ohio State defeats Kent State | 97% | Lean | Ohio State won 59-3 |
+| ✅ | Utah defeats Utah State | 97% | Lean | Utah won 33-0 |
+| ✅ | Michigan defeats UTEP | 97% | Lean | Michigan won 52-17 |
+| ✅ | Arizona defeats Northern Illinois | 96% | Lean | Arizona won 42-17 |
+| ✅ | Tennessee defeats Kennesaw State | 96% | Lean | Tennessee won 42-9 |
+| ✅ | Iowa State defeats Bowling Green | 96% | Lean | Iowa State won 55-7 |
+| ✅ | Alabama defeats Florida State | 96% | Lean | Alabama won 50-36 |
+| ✅ | Notre Dame defeats Michigan State | 94% | Lean | Notre Dame won 27-10 |
+| ✅ | Missouri defeats Troy | 91% | Lean | Missouri won 27-17 |
+| ✅ | Georgia defeats Arkansas | 88% | Lean | Georgia won 45-17 |
+| ✅ | Texas defeats UTSA | 88% | Lean | Texas won 30-6 |
+| ✅ | Wisconsin defeats Eastern Michigan | 87% | Lean | Wisconsin won 54-10 |
+| ❌ | Texas A&M defeats Kentucky | 83% | Pass | Kentucky won 31-21 |
+| ✅ | Pittsburgh defeats Syracuse | 82% | Pass | Pittsburgh won 27-13 |
+| ✅ | App State defeats Charlotte | 82% | Pass | App State won 26-21 |
+| ✅ | USC defeats Rutgers | 82% | Pass | USC won 42-35 |
+| ✅ | UCLA defeats Purdue | 82% | Pass | UCLA won 52-38 |
+| ✅ | Minnesota defeats Akron | 81% | Pass | Minnesota won 41-7 |
+| ✅ | Oklahoma defeats New Mexico | 80% | Pass | Oklahoma won 14-6 |
+| ✅ | Miami defeats Wake Forest | 77% | Pass | Miami won 33-20 |
+| ✅ | Liberty defeats Ball State | 77% | Pass | Liberty won 51-15 |
+| ✅ | TCU defeats Arkansas State | 74% | Pass | TCU won 31-7 |
+| ✅ | Toledo defeats Temple | 73% | Pass | Toledo won 49-48 |
+| ✅ | Cincinnati defeats Miami (OH) | 73% | Pass | Cincinnati won 35-31 |
+| ✅ | Kansas State defeats Tulane | 72% | Pass | Kansas State won 31-20 |
+| ✅ | Baylor defeats Louisiana Tech | 71% | Pass | Baylor won 36-19 |
+| ✅ | UCF defeats Georgia State | 70% | Pass | UCF won 44-30 |
+| ✅ | Duke defeats Stanford | 69% | Pass | Duke won 35-7 |
+| ✅ | Vanderbilt defeats NC State | 68% | Pass | Vanderbilt won 35-31 |
+| ✅ | Texas Tech defeats Houston | 68% | Pass | Texas Tech won 28-26 |
+| ✅ | South Alabama defeats Ohio | 67% | Pass | South Alabama won 41-36 |
+| ✅ | Ole Miss defeats LSU | 66% | Pass | Ole Miss won 32-24 |
+| ✅ | Central Michigan defeats Wyoming | 66% | Pass | Central Michigan won 24-10 |
+| ✅ | Northwestern defeats Colorado | 66% | Pass | Northwestern won 41-7 |
+| ✅ | Clemson defeats North Carolina | 65% | Pass | Clemson won 28-20 |
+| ❌ | Virginia wins at a neutral site | 65% | Pass | West Virginia won 38-27 |
+| ✅ | BYU defeats Colorado State | 64% | Pass | BYU won 41-23 |
+| ✅ | Delaware defeats Coastal Carolina | 64% | Pass | Delaware won 22-14 |
+| ✅ | Louisiana defeats UAB | 64% | Pass | Louisiana won 21-14 |
+| ❌ | Old Dominion defeats East Carolina | 63% | Pass | East Carolina won 20-17 |
+| ❌ | Maryland defeats Virginia Tech | 63% | Pass | Virginia Tech won 35-26 |
+| ✅ | Western Michigan defeats Rice | 62% | Pass | Western Michigan won 28-21 |
+| ❌ | South Carolina defeats Mississippi State | 62% | Pass | Mississippi State won 41-34 |
+| ❌ | Missouri State defeats Marshall | 61% | Pass | Marshall won 30-24 |
+| ✅ | Florida Atlantic defeats Florida International | 61% | Pass | Florida Atlantic won 16-10 |
+| ✅ | North Dakota State defeats Sacramento State | 61% | Pass | North Dakota State won 31-10 |
+| ✅ | Arizona State wins at a neutral site | 60% | Pass | Arizona State won 24-17 |
+| ✅ | Fresno State defeats San José State | 59% | Pass | Fresno State won 26-10 |
+| ✅ | James Madison defeats San Diego State | 59% | Pass | James Madison won 26-13 |
+| ❌ | SMU defeats Louisville | 57% | Pass | Louisville won 41-31 |
+| ✅ | Middle Tennessee defeats Nevada | 56% | Pass | Middle Tennessee won 27-20 |
+| ❌ | Southern Miss defeats UConn | 55% | Pass | UConn won 48-20 |
+| ✅ | Florida defeats Auburn | 54% | Pass | Florida won 44-39 |
+| ❌ | Georgia Southern defeats Jacksonville State | 53% | Pass | Jacksonville State won 31-27 |
+| ✅ | Texas State defeats North Texas | 50% | Pass | Texas State won 49-35 |
 
 
 ---
