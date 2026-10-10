@@ -47,6 +47,29 @@ from ballknower_quad.settings import settings
 DEFAULT_MARGIN_SIGMA = 16.0
 
 
+def code_is_dirty(root: Optional[Path] = None) -> Optional[str]:
+    """
+    Uncommitted changes under the package directory, or None if clean.
+
+    Every ledger row records `code_commit`, the commit that produced it. If the
+    working tree has edits that aren't in that commit, the row points at code
+    that did not generate the forecast — which quietly breaks the one claim the
+    ledger makes about reproducibility. Not a git repo at all returns None (the
+    row records "nogit", which is at least honest).
+    """
+    import subprocess
+    root = Path(root or settings.project_root)
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain", "--", "ballknower_quad"],
+            capture_output=True, text=True, timeout=5, cwd=root)
+    except Exception:  # noqa: BLE001
+        return None
+    if out.returncode != 0:
+        return None
+    return out.stdout.strip() or None
+
+
 def _load_predictions(date_str: str) -> tuple[List[dict], Path]:
     d = settings.content_root / date_str
     p = d / "predictions.json"
@@ -75,9 +98,17 @@ def records_for_game(g: dict, *, asof_ts: str, committed_ts: str,
                      provenance: str, sigma: float,
                      model_version: str) -> List[ForecastRecord]:
     home, away = g["home_team"], g["away_team"]
-    kickoff = g.get("game_date") or ""
-    if len(kickoff) == 10:                      # date only -> assume noon UTC
-        kickoff = f"{kickoff}T12:00:00+00:00"
+    # Use the real kickoff instant. The date-only fallback survives only for
+    # batches written before `kickoff_ts` existed, and it deliberately errs
+    # EARLY: an assumed kickoff before the real one can only cause a wrongful
+    # refusal, never a wrongful claim of pre-registration. That's the right
+    # direction for a track record to fail in — it just must not be the normal
+    # path, which is what it silently was.
+    kickoff = g.get("kickoff_ts") or ""
+    if not kickoff:
+        d = g.get("game_date") or ""
+        kickoff = f"{d}T12:00:00+00:00" if len(d) == 10 else d
+        g["_kickoff_guessed"] = True
 
     ev = event_id(g.get("game_id"), g.get("season"), g.get("week"), home, away)
     neutral = bool(g.get("neutral_site"))
@@ -134,7 +165,25 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--asof", default=None,
                     help="ISO timestamp of the latest data the model saw "
                          "(default: read from the slate)")
+    ap.add_argument("--allow-dirty", action="store_true",
+                    help="emit even with uncommitted code changes (dev only — "
+                         "code_commit on the rows will not match the code "
+                         "that ran)")
     args = ap.parse_args(argv)
+
+    dirty = code_is_dirty()
+    if dirty and args.provenance == "live" and not args.allow_dirty:
+        print("=" * 62)
+        print("  ⛔ EMIT REFUSED — uncommitted changes under ballknower_quad/")
+        print("=" * 62)
+        for line in dirty.splitlines()[:8]:
+            print(f"    {line}")
+        print()
+        print("  Live rows record code_commit as the code that produced them.")
+        print("  Commit first, then re-run:")
+        print("    git add ballknower_quad && git commit -m '...'")
+        print("  (or --allow-dirty for a dev run that won't be published)")
+        return 3
 
     preds, out_dir = _load_predictions(args.date)
     if not preds:
@@ -145,34 +194,75 @@ def main(argv: Optional[List[str]] = None) -> int:
     sigma = _margin_sigma()
     model_version = settings.active_model_version
 
+    ledger_dir = out_dir / "ledger"
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+    jsonl = ledger_dir / "forecasts.jsonl"
+
+    # Append-only. This used to rewrite forecasts.jsonl from scratch, so
+    # re-running emit on a batch that had already been graded would have
+    # destroyed the rows its resolutions point at. Existing rows are now
+    # immutable: we only add forecast_ids not already present, and the hash
+    # chain continues from the last row on disk.
+    existing_ids: set = set()
+    prev_hash = None
+    if jsonl.exists():
+        lines = [l for l in jsonl.read_text().splitlines() if l]
+        for l in lines:
+            existing_ids.add(json.loads(l)["forecast_id"])
+        if lines:
+            prev_hash = json.loads(lines[-1]).get("row_hash")
+
     records: List[ForecastRecord] = []
     refused: List[tuple] = []
-    prev_hash = None
+    skipped_existing = 0
+    guessed = 0
 
     for g in preds:
         try:
-            for rec in records_for_game(
+            recs = records_for_game(
                     g, asof_ts=asof, committed_ts=committed,
                     provenance=args.provenance, sigma=sigma,
-                    model_version=model_version):
+                    model_version=model_version)
+            guessed += int(bool(g.get("_kickoff_guessed")))
+            for rec in recs:
+                if rec.compute_id() in existing_ids:
+                    skipped_existing += 1
+                    continue
                 rec.finalize(prev_hash)
                 prev_hash = rec.row_hash
                 records.append(rec)
         except LedgerError as e:
-            refused.append((f"{g.get('away_team')} @ {g.get('home_team')}", str(e)))
+            refused.append((f"{g.get('away_team')} @ {g.get('home_team')}",
+                            str(g.get("game_date", "")), str(e)))
 
-    ledger_dir = out_dir / "ledger"
-    ledger_dir.mkdir(parents=True, exist_ok=True)
-    jsonl = ledger_dir / "forecasts.jsonl"
-    jsonl.write_text("\n".join(r.to_json() for r in records) + "\n")
+    if records:
+        with jsonl.open("a") as fh:
+            for r in records:
+                fh.write(r.to_json() + "\n")
 
-    manifest = build_manifest(records, batch_label=f"cfb-{args.date}")
+    # Manifest reflects the WHOLE batch on disk, not just this run's additions.
+    from types import SimpleNamespace
+    all_rows = [SimpleNamespace(**json.loads(l)) for l in
+                jsonl.read_text().splitlines() if l] if jsonl.exists() else []
+    manifest = build_manifest(all_rows, batch_label=f"cfb-{args.date}")
     (ledger_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
+
+    n_games = len(preds)
+    games_written = len({r.event_id for r in records})
+    games_refused = len({name for name, _, _ in refused})
 
     print("=" * 62)
     print(f"  FORECAST LEDGER — cfb-{args.date}")
     print("=" * 62)
-    print(f"  records written : {len(records)}  "
+    print(f"  slate           : {n_games} games")
+    print(f"  emitted         : {games_written} games "
+          f"({len(records)} records)")
+    if skipped_existing:
+        print(f"  already on file : {skipped_existing} records "
+              f"(append-only — left untouched)")
+    if games_refused:
+        print(f"  refused         : {games_refused} games")
+    print(f"  batch total     : {manifest['record_count']} records  "
           f"({manifest['family_counts']})")
     print(f"  provenance      : {args.provenance}")
     print(f"  tiers           : {manifest['tier_counts']}")
@@ -186,18 +276,55 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(f"  → {ledger_dir / 'manifest.json'}")
 
     if refused:
-        print(f"\n  ⚠ {len(refused)} game(s) REFUSED (invariant violation):")
-        for name, why in refused[:6]:
-            print(f"    {name}: {why[:110]}")
-        print("    A row committed after kickoff is not a forecast. Run the "
-              "pipeline earlier in the week.")
+        started = [r for r in refused if "already kicked off" in r[2]]
+        other = [r for r in refused if r not in started]
+
+        if started:
+            share = len(started) / max(n_games, 1)
+            loud = share > 0.20
+            head = "⛔" if loud else "ⓘ"
+            print(f"\n  {head} {len(started)} of {n_games} game(s) refused as "
+                  f"already kicked off ({share:.0%}):")
+            for name, when, _ in started[:8]:
+                print(f"      {name}  (kickoff {when})")
+            if len(started) > 8:
+                print(f"      … and {len(started) - 8} more")
+            if loud:
+                # A handful of Thursday/Friday games is normal. A majority of
+                # the slate is not — it means either the run really was late,
+                # or the kickoff times are wrong. Don't reassure; make the user
+                # check which.
+                print("    That's most of the slate. Before accepting it, check")
+                print("    the kickoff times above against the real schedule —")
+                print("    if games listed here hadn't started when you ran this,")
+                print("    the timestamps are wrong, not the timing.")
+            else:
+                print("    Normal for a few early-week games; a forecast "
+                      "committed after kickoff isn't a forecast.")
+
+        if other:
+            print(f"\n  ⚠ {len(other)} game(s) REFUSED for other reasons:")
+            for name, when, why in other[:6]:
+                print(f"      {name} ({when}): {why}")
+
+    if guessed:
+        print(f"\n  ⚠ {guessed} game(s) had no kickoff time and fell back to a "
+              f"noon-UTC guess.")
+        print("    That guess refuses early rather than wrongly accepting, but it")
+        print("    shouldn't happen on a fresh slate — re-run weekly_pipeline.")
 
     print("\n  Next: commit the manifest so the timestamp is third-party "
           "attested —")
-    print(f"    git add {ledger_dir.relative_to(settings.project_root)} && \\")
+    try:
+        shown = ledger_dir.relative_to(settings.project_root)
+    except ValueError:
+        shown = ledger_dir          # content root configured outside the repo
+    print(f"    git add {shown} && \\")
     print(f"    git commit -m 'ledger: cfb {args.date}' && git push")
     print("\n" + settings.disclaimer)
-    return 0
+    # Non-zero exit when most of the slate was refused, so a script or a
+    # glance at the terminal can't mistake it for a clean run.
+    return 2 if (refused and len(refused) / max(n_games, 1) > 0.20) else 0
 
 
 if __name__ == "__main__":

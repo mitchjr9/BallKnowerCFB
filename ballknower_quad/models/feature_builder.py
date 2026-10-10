@@ -189,6 +189,11 @@ class FeatureBuilder:
         self._last_game_date: dict = {}
         self._last_season: int | None = None
         self.ppa_games_skipped = 0
+        # Completed games per team in the CURRENT season. Counted from the games
+        # frame rather than from PPA rows: CFBD's /ppa/games lags live results by
+        # days, so deriving depth from PPA made every team look like it had
+        # played nothing well into September.
+        self._season_games: dict = defaultdict(int)
 
     # ------------------------------------------------------------------ #
     def _eff_rating(self, team: str) -> float:
@@ -227,32 +232,9 @@ class FeatureBuilder:
 
         rows, y_win, y_margin = [], [], []
         for r in g.itertuples(index=False):
-            new_season = (self._last_season is not None
-                          and r.season != self._last_season)
-            if new_season:
-                # Only regress Elo across seasons when we're fitting it. A pre-
-                # loaded warm Elo already has carryover baked in; re-walking games
-                # to rebuild *efficiency* must not touch it.
-                if fit_elo:
-                    priors = (self.prior.priors_for_season(int(r.season))
-                              if self.prior is not None else None)
-                    self.elo._carry_to_new_season(
-                        priors=priors,
-                        blend=settings.preseason_blend if priors else 0.0)
-                self._carry_efficiency()
-                if self.use_ppa:
-                    # New season: current-season PPA accumulators reset, and a
-                    # prior-season anchor takes over for Week 1. This is the fix
-                    # for the exact hole that made Gridiron's V2 QB rating so
-                    # noisy in September.
-                    if settings.ppa_anchor_source == "self":
-                        self.ppa.snapshot_as_anchors()   # before clearing state
-                        self.ppa.start_new_season()
-                    else:
-                        self.ppa.start_new_season()
-                        if self._season_ppa is not None:
-                            self.ppa.set_anchors_from_season(
-                                self._season_ppa, int(r.season))
+            if (self._last_season is not None
+                    and r.season != self._last_season):
+                self.roll_to_season(int(r.season), roll_elo=fit_elo)
             self._last_season = r.season
             self._cur_season = int(r.season) if pd.notna(r.season) else None
             self.elo.last_season = r.season
@@ -313,6 +295,8 @@ class FeatureBuilder:
                 self._eff_n[r.away_team] += 1
                 self._last_game_date[r.home_team] = r.start_date
                 self._last_game_date[r.away_team] = r.start_date
+                self._season_games[r.home_team] += 1
+                self._season_games[r.away_team] += 1
                 if self.use_ppa:
                     self._update_ppa_from_game(r)
             else:
@@ -338,6 +322,52 @@ class FeatureBuilder:
             "net_ppa_diff": h_net - a_net,
             "mean_net_ppa": (h_net + a_net) / 2.0,
         }
+
+    # ------------------------------------------------------------------ #
+    # Season boundary
+    # ------------------------------------------------------------------ #
+    def roll_to_season(self, season: int, roll_elo: bool = True) -> None:
+        """
+        Advance every rating engine into `season`.
+
+        Extracted from the training walk so the SERVING path can call the exact
+        same code. It previously lived only inside `build()`, which meant a
+        pipeline warmed on completed games alone never crossed into the new
+        season: in Week 1 the engines still held last season's in-season state.
+        Two things broke as a result — PPA features were served from end-of-last-
+        season ratings the model was never trained against, and `_n` still held
+        last year's game counts, so the ledger read the data depth as "rich" and
+        published Locks in a week where no football had been played.
+
+        `roll_elo=False` when a warm Elo was loaded from disk that has already
+        been rolled; the efficiency and PPA state still need advancing.
+        """
+        if roll_elo:
+            priors = (self.prior.priors_for_season(int(season))
+                      if self.prior is not None else None)
+            self.elo._carry_to_new_season(
+                priors=priors,
+                blend=settings.preseason_blend if priors else 0.0)
+        self._carry_efficiency()
+        if self.use_ppa:
+            # Current-season accumulators reset and a prior-season anchor takes
+            # over for Week 1 — the fix for the exact hole that made Gridiron's
+            # V2 QB rating so noisy in September.
+            if settings.ppa_anchor_source == "self":
+                self.ppa.snapshot_as_anchors()      # before clearing state
+                self.ppa.start_new_season()
+            else:
+                self.ppa.start_new_season()
+                if self._season_ppa is not None:
+                    self.ppa.set_anchors_from_season(self._season_ppa,
+                                                     int(season))
+        self._season_games.clear()
+        self._last_season = season
+        self._cur_season = int(season)
+
+    def games_played(self, team: str) -> int:
+        """Completed games this team has played in the current season."""
+        return int(self._season_games.get(team, 0))
 
     # ------------------------------------------------------------------ #
     # Preseason helpers (v2+)

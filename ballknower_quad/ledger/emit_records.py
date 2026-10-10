@@ -296,14 +296,16 @@ class ForecastRecord:
         # committed today about a game played in 2019; that's why `provenance`
         # exists, and why public calibration surfaces filter to live only.
         if self.provenance == "live":
-            if not (a <= c <= e):
+            if c > e:
                 raise LedgerError(
-                    "pre-registration invariant violated: require asof_ts <= "
-                    f"committed_ts <= event_start_ts, got {self.asof_ts} / "
-                    f"{self.committed_ts} / {self.event_start_ts}. A row "
-                    "committed after kickoff is not a forecast — emit it with "
-                    "--provenance backfill, which is quarantined from the "
-                    "public calibration curve.")
+                    f"already kicked off — kickoff {self.event_start_ts}, "
+                    f"committed {self.committed_ts}. A row committed after "
+                    "kickoff is not a forecast.")
+            if a > c:
+                raise LedgerError(
+                    f"asof_ts ({self.asof_ts}) is after committed_ts "
+                    f"({self.committed_ts}) — the model saw data from after "
+                    "the moment we claim to have published.")
         elif a > c:
             raise LedgerError(
                 f"asof_ts ({self.asof_ts}) is after committed_ts "

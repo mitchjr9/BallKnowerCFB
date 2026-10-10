@@ -13,6 +13,7 @@ DISCLAIMER: entertainment/education only — not betting advice.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -20,13 +21,36 @@ from ballknower_quad.settings import settings
 
 
 def confidence_tier(confidence: float) -> str:
-    """confidence = 2*|p - 0.5| (0 = coin flip, 1 = certain). Mapped via favorite
-    win prob thresholds in settings.confidence_tiers."""
+    """
+    Tier from probability ALONE, ignoring data depth.
+
+    Kept for callers that genuinely want the raw band; the newsletter does NOT
+    use it. See `tier_label`.
+    """
     fav_prob = 0.5 + confidence / 2.0
     for threshold, label in settings.confidence_tiers:
         if fav_prob >= threshold:
             return label
     return "🪙 Pass"
+
+
+def tier_label(fav_prob: float, data_depth: str = "rich") -> str:
+    """
+    The published tier — same function the ledger grades against.
+
+    These had drifted apart: the newsletter tiered on probability alone while the
+    ledger applied the early-season data-depth cap. The result was a slate
+    advertising 14 Locks whose forecast records were all filed as Lean, so the
+    published claim and the graded claim disagreed. Calibration only means
+    anything if the label a reader sees is the label that gets scored, so both
+    now route through `compute_tier`.
+    """
+    from ballknower_quad.ledger.emit_records import compute_tier
+    bare = compute_tier(fav_prob, data_depth)
+    for _, label in settings.confidence_tiers:
+        if re.sub(r"[^A-Za-z]", "", label) == bare:
+            return label
+    return settings.confidence_tiers[-1][1]
 
 
 @dataclass
@@ -46,6 +70,11 @@ class GamePrediction:
     confidence: float = 0.0
     tier: str = ""
 
+    # CFBD's numeric game id. Carried through so the ledger can key forecasts
+    # on a stable upstream identifier instead of falling back to a
+    # season/week/teams composite — which is what silently happened before this
+    # field existed, leaving a whole batch unmatchable by the grader.
+    game_id: Optional[str] = None
     season: Optional[int] = None
     week: Optional[int] = None
     neutral_site: bool = False
@@ -67,15 +96,19 @@ class GamePrediction:
     @classmethod
     def from_probs(cls, *, game_date, home_team, away_team,
                    p_blended, p_model, p_elo, elo_home, elo_away,
+                   games_played_min: Optional[int] = None,
                    **kwargs) -> "GamePrediction":
+        from ballknower_quad.ledger.emit_records import data_depth_for
         confidence = abs(p_blended - 0.5) * 2.0
         favorite = home_team if p_blended >= 0.5 else away_team
         fav_prob = max(p_blended, 1 - p_blended)
+        depth = data_depth_for(games_played_min)
         return cls(game_date=game_date, home_team=home_team, away_team=away_team,
                    p_model=p_model, p_elo=p_elo, p_blended=p_blended,
                    elo_home=elo_home, elo_away=elo_away,
                    favorite=favorite, fav_prob=fav_prob, confidence=confidence,
-                   tier=confidence_tier(confidence), **kwargs)
+                   tier=tier_label(fav_prob, depth),
+                   games_played_min=games_played_min, **kwargs)
 
     def attach_margin(self, predicted_margin: float,
                       spread_line: Optional[float]) -> "GamePrediction":
@@ -352,9 +385,10 @@ def render_blog(preds: List["GamePrediction"], date_label: str,
     thin = [p for p in preds if p.games_played_min is not None
             and p.games_played_min < 2]
     if thin:
+        n_teams = len({t for p in thin for t in (p.home_team, p.away_team)})
         out.append("## A note on early-season confidence\n")
         out.append(
-            f"{len(thin)} of these teams have almost no {date_label[-4:]} football "
+            f"{n_teams} of these teams have almost no {date_label[-4:]} football "
             f"on the books, so their ratings still lean on preseason roster "
             f"signals — recruiting, returning production, transfers — rather than "
             f"results. The model knows this and caps how confident it's allowed "

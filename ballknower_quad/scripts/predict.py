@@ -43,6 +43,15 @@ def _warm_builder(version: str, seasons_back: int = 11) -> FeatureBuilder:
     # Walk completed games to rebuild rolling efficiency + PPA state. Elo is only
     # re-fit when we don't already have a saved warm state.
     fb.build(bundle.games, fit_elo=not elo_path.exists())
+
+    # If the newest season has no completed games yet, the walk stopped in the
+    # previous one — roll forward so a single-matchup prediction uses the same
+    # state the weekly pipeline and the training walk would.
+    upcoming = bundle.games.loc[~bundle.games["completed"], "season"].dropna()
+    if len(upcoming):
+        target = int(upcoming.min())
+        if fb._last_season != target:
+            fb.roll_to_season(target, roll_elo=not elo_path.exists())
     return fb
 
 

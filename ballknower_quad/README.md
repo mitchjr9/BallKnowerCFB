@@ -35,7 +35,9 @@ BallKnowerCFB/                    <- project root (run python -m from HERE)
 │   ├── ledger/
 │   │   ├── emit_records.py    <- forecast record model + invariants + tier fn
 │   │   ├── emit.py            <- predictions.json -> forecasts.jsonl + manifest
-│   │   └── selftest.py        <- 24 invariant tests (incl. ones that must fail)
+│   │   ├── resolve.py         <- the grader: append-only resolutions.jsonl
+│   │   ├── score.py           <- calibration report (a view, never stored)
+│   │   └── selftest.py        <- 33 invariant tests (incl. ones that must fail)
 │   ├── backtest/
 │   │   ├── evaluate.py            <- walk-forward; acc / Brier / log-loss / ECE / ATS
 │   │   └── leakage_audit.py       <- truncation-invariance proof (no future peeking)
@@ -387,7 +389,28 @@ git push -u origin main
 Commit `.gitignore` before anything else. Once a key is in git history, removing
 it needs a history rewrite and the key should be rotated regardless.
 
-## Weekly run
+## Automated weekly run (launchd)
+
+`ops/weekly.sh` runs the whole Tuesday routine unattended and stops at the
+first refusal: grade → score → train → selftest → generate → emit → push. It's
+idempotent (a same-day re-run skips to publish), logs to `logs/weekly/<date>.log`,
+and sends a macOS banner either way. `ops/com.ballknower.quad.weekly.plist`
+schedules it for Tuesday 10:30 — after Saturday's results have posted and before
+the week's earliest kickoff.
+
+```bash
+bash ops/weekly.sh                      # run now, safe to repeat
+cp ops/com.ballknower.quad.weekly.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ballknower.quad.weekly.plist
+launchctl kickstart -k gui/$(id -u)/com.ballknower.quad.weekly   # test via launchd
+```
+
+`emit` now refuses to write live rows from an uncommitted working tree, since
+each row records the commit that produced it. Commit code changes before
+Tuesday or the run will stop and say so. `--allow-dirty` exists for dev runs
+that won't be published.
+
+## Weekly run (by hand)
 
 ```bash
 cd ~/Downloads/BallKnowerCFB && source venv/bin/activate
@@ -411,6 +434,35 @@ Outputs land in `content/cfb/<date>/`:
 Run it **early in the week**. The emitter refuses any live row whose
 `committed_ts` is after kickoff, which is the point — a forecast published after
 the game starts isn't a forecast.
+
+## The weekly rhythm
+
+Two passes per week, in opposite halves of it:
+
+```bash
+# --- Tuesday / Wednesday: pre-register -------------------------------------
+python -m ballknower_quad.scripts.train
+python -m ballknower_quad.scripts.weekly_pipeline
+python -m ballknower_quad.ledger.emit
+git add content/cfb && git commit -m "ledger: cfb $(date +%F)" && git push
+
+# --- Monday: grade last week, then publish the curve -----------------------
+python -m ballknower_quad.ledger.resolve --all
+python -m ballknower_quad.ledger.score --write
+git add content/cfb && git commit -m "ledger: resolve $(date +%F)" && git push
+```
+
+`resolve` is **append-only and never touches `forecasts.jsonl`**. Grading writes
+`resolutions.jsonl` beside it, joined on `forecast_id`. That separation is what
+makes the record auditable: if grading could edit the forecast, "we said 62%" and
+"we were right" would live in the same mutable row and nobody outside would have
+reason to believe either. Re-running is a no-op on anything already graded, so
+there is no way to quietly regrade a miss.
+
+`score` computes everything on demand and **stores nothing**. Freezing Brier into
+the data would lock in one metric forever and make rescoring a history rewrite.
+Backfill rows are excluded by default — they're model-development artifacts, not
+evidence of foresight.
 
 ## The forecast ledger
 
