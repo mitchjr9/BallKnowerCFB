@@ -164,6 +164,9 @@ def run() -> int:
     check("emit is append-only (re-run never rewrites a batch)",
           _emit_append_only)
     check("dirty working tree is detected; clean tree is not", _dirty_guard)
+    check("GamePrediction carries game_id and kickoff_ts (ledger contract)",
+          _prediction_contract)
+    check("stale cancelled game never rewinds a warmed season", _no_rewind)
 
     # --- every CLI parser must build ------------------------------------ #
     check("all CLI parsers build (argparse help strings are format-safe)",
@@ -408,6 +411,61 @@ def _dirty_guard() -> None:
                        cwd=root, env=env, check=True, capture_output=True)
         (root / "content.txt").write_text("generated\n")
         _assert(code_is_dirty(root) is None)
+
+
+def _prediction_contract() -> None:
+    """
+    The ledger needs two fields the newsletter does not: a stable upstream id
+    and a real kickoff instant. Both were missing once — one broke grading,
+    the other refused 42 of 46 games on a Saturday morning. If either field
+    disappears from the dataclass again, fail here rather than at kickoff.
+    """
+    import dataclasses
+    from ballknower_quad.content_utils import GamePrediction
+    names = {f.name for f in dataclasses.fields(GamePrediction)}
+    _assert("game_id" in names)
+    _assert("kickoff_ts" in names)
+
+
+def _no_rewind() -> None:
+    """
+    CFBD keeps cancelled games as incomplete forever. The season to roll the
+    engines into must come from the games AHEAD of us, never from the minimum
+    season among all incomplete rows — that rewound a Week 6 state to 2024.
+    """
+    import numpy as np
+    import pandas as pd
+    from ballknower_quad.data.bundle import load_bundle
+    from ballknower_quad.models.feature_builder import FeatureBuilder
+
+    b = load_bundle([2023, 2024, 2025, 2026], version="v2")
+    g = b.games.copy()
+    latest = int(g["season"].max())
+    now = pd.Timestamp.now(tz="UTC")
+    cur = g[g["season"] == latest]
+    frame = pd.concat([
+        g[g["season"] < latest].iloc[1:].assign(completed=True),
+        g[g["season"] < latest].iloc[[0]].assign(      # the cancelled game
+            completed=False, home_points=np.nan, away_points=np.nan),
+        cur[cur["week"] <= 5].assign(completed=True),
+        cur[cur["week"] == 6].assign(completed=False, home_points=np.nan,
+                                     away_points=np.nan,
+                                     start_date=now + pd.Timedelta(hours=6)),
+    ])
+    completed = frame[frame["completed"] & frame["home_points"].notna()]
+    fb = FeatureBuilder(version="v2", game_ppa=b.game_ppa,
+                        season_ppa=b.season_ppa, preseason=b.preseason)
+    fb.build(completed, fit_elo=True)
+    team = cur.iloc[0]["home_team"]
+    before = fb.games_played(team)
+    _assert(before > 0)
+
+    ahead = frame[(~frame["completed"]) & (frame["start_date"] >= now)]
+    target = int(ahead["season"].min())
+    _assert(target == latest)                       # not the stale season
+    if target > int(fb._last_season):
+        fb.roll_to_season(target, roll_elo=True)
+    _assert(fb.games_played(team) == before)        # state untouched
 
 
 def _all_parsers_build() -> None:

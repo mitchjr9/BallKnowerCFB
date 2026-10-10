@@ -21,6 +21,8 @@ import argparse
 import datetime as dt
 from typing import List, Optional
 
+import pandas as pd
+
 from ballknower_quad.data.bundle import load_bundle, season_range
 from ballknower_quad.models.cfb_elo import CFBElo
 from ballknower_quad.models.cfb_margin_v1 import CFBMarginV1
@@ -47,10 +49,15 @@ def _warm_builder(version: str, seasons_back: int = 11) -> FeatureBuilder:
     # If the newest season has no completed games yet, the walk stopped in the
     # previous one — roll forward so a single-matchup prediction uses the same
     # state the weekly pipeline and the training walk would.
-    upcoming = bundle.games.loc[~bundle.games["completed"], "season"].dropna()
-    if len(upcoming):
-        target = int(upcoming.min())
-        if fb._last_season != target:
+    # Season of the next game actually ahead of us — NOT the minimum season
+    # among all incomplete rows, which picks up cancelled games CFBD keeps
+    # forever and would rewind a warmed in-season state. Forward only.
+    now = pd.Timestamp.now(tz="UTC")
+    g = bundle.games
+    ahead = g[(~g["completed"]) & (g["start_date"] >= now)]
+    if len(ahead):
+        target = int(ahead["season"].min())
+        if fb._last_season is None or target > int(fb._last_season):
             fb.roll_to_season(target, roll_elo=not elo_path.exists())
     return fb
 

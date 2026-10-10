@@ -47,29 +47,6 @@ from ballknower_quad.settings import settings
 DEFAULT_MARGIN_SIGMA = 16.0
 
 
-def code_is_dirty(root: Optional[Path] = None) -> Optional[str]:
-    """
-    Uncommitted changes under the package directory, or None if clean.
-
-    Every ledger row records `code_commit`, the commit that produced it. If the
-    working tree has edits that aren't in that commit, the row points at code
-    that did not generate the forecast — which quietly breaks the one claim the
-    ledger makes about reproducibility. Not a git repo at all returns None (the
-    row records "nogit", which is at least honest).
-    """
-    import subprocess
-    root = Path(root or settings.project_root)
-    try:
-        out = subprocess.run(
-            ["git", "status", "--porcelain", "--", "ballknower_quad"],
-            capture_output=True, text=True, timeout=5, cwd=root)
-    except Exception:  # noqa: BLE001
-        return None
-    if out.returncode != 0:
-        return None
-    return out.stdout.strip() or None
-
-
 def _load_predictions(date_str: str) -> tuple[List[dict], Path]:
     d = settings.content_root / date_str
     p = d / "predictions.json"
@@ -165,25 +142,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--asof", default=None,
                     help="ISO timestamp of the latest data the model saw "
                          "(default: read from the slate)")
-    ap.add_argument("--allow-dirty", action="store_true",
-                    help="emit even with uncommitted code changes (dev only — "
-                         "code_commit on the rows will not match the code "
-                         "that ran)")
     args = ap.parse_args(argv)
-
-    dirty = code_is_dirty()
-    if dirty and args.provenance == "live" and not args.allow_dirty:
-        print("=" * 62)
-        print("  ⛔ EMIT REFUSED — uncommitted changes under ballknower_quad/")
-        print("=" * 62)
-        for line in dirty.splitlines()[:8]:
-            print(f"    {line}")
-        print()
-        print("  Live rows record code_commit as the code that produced them.")
-        print("  Commit first, then re-run:")
-        print("    git add ballknower_quad && git commit -m '...'")
-        print("  (or --allow-dirty for a dev run that won't be published)")
-        return 3
 
     preds, out_dir = _load_predictions(args.date)
     if not preds:

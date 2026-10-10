@@ -75,6 +75,10 @@ class GamePrediction:
     # season/week/teams composite — which is what silently happened before this
     # field existed, leaving a whole batch unmatchable by the grader.
     game_id: Optional[str] = None
+    # Full kickoff instant (ISO, UTC). `game_date` is a DATE, which the ledger
+    # cannot use: it had to guess a time, guessed noon UTC (7am Central), and
+    # refused every daytime game on any slate emitted after breakfast.
+    kickoff_ts: Optional[str] = None
     season: Optional[int] = None
     week: Optional[int] = None
     neutral_site: bool = False

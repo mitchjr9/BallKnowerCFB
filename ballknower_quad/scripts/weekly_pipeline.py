@@ -108,6 +108,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     bundle = load_bundle(seasons, version=version)
     games = bundle.games
 
+    # Pick the slate FIRST, so the season we roll the engines into is the
+    # season of the games we are about to score — not the minimum season among
+    # every incomplete row in the frame. Those are not the same thing: CFBD keeps
+    # cancelled games (the 2024 hurricane postponements, for instance) as
+    # incomplete forever, and `min()` over them rolled a fully-warmed 2026 state
+    # BACK to 2024 in Week 6 — wiping games-played (so every tier capped at
+    # Lean), resetting PPA to 2023 anchors, and serving 2024 roster priors.
+    slate = _upcoming(games, args.horizon_days,
+                      include_started=args.include_started, week=args.week)
+    if len(slate):
+        wks = sorted(set(int(w) for w in slate["week"].dropna()))
+        print(f"  target: {int(slate['season'].min())} week "
+              f"{wks[0] if len(wks) == 1 else wks}")
+
     # warm a builder on completed games only (leakage free), then score the slate
     fb = FeatureBuilder(version=version, game_ppa=bundle.game_ppa,
                         season_ppa=bundle.season_ppa,
@@ -120,24 +134,21 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # Warming on completed games alone stops at the last finished game — in
     # August that's last season's title game. Without this the engines still
-    # hold last season's in-season state, which both skews the PPA features away
-    # from what the model was trained on and makes the ledger read Week 1 data
-    # depth as "rich". Roll forward exactly the way the training walk does.
-    slate_season = None
-    upcoming_seasons = games.loc[~games["completed"], "season"].dropna()
-    if len(upcoming_seasons):
-        slate_season = int(upcoming_seasons.min())
-    if slate_season is not None and fb._last_season != slate_season:
-        fb.roll_to_season(slate_season, roll_elo=not elo_path.exists())
-        print(f"  rolled rating state into {slate_season} "
-              f"(no completed {slate_season} games yet)")
-
-    slate = _upcoming(games, args.horizon_days,
-                      include_started=args.include_started, week=args.week)
+    # hold last season's in-season state. Roll FORWARD only: a slate season
+    # behind the warmed state can only mean stale rows in the frame, and the
+    # right response is to refuse, never to rewind a season of results.
     if len(slate):
-        wks = sorted(set(int(w) for w in slate["week"].dropna()))
-        print(f"  target: {int(slate['season'].min())} week "
-              f"{wks[0] if len(wks) == 1 else wks}")
+        slate_season = int(slate["season"].min())
+        warmed = fb._last_season
+        if warmed is None or slate_season > int(warmed):
+            fb.roll_to_season(slate_season, roll_elo=not elo_path.exists())
+            print(f"  rolled rating state into {slate_season} "
+                  f"(no completed {slate_season} games yet)")
+        elif slate_season < int(warmed):
+            print(f"  ✗ slate is season {slate_season} but ratings are warmed "
+                  f"through {warmed}; refusing to rewind.")
+            return 1
+
     n_all = len(slate)
     if not args.include_fcs and "away_classification" in slate.columns:
         is_fcs_game = ((slate["home_classification"].astype(str).str.lower()
@@ -173,6 +184,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             elo_away=fb.elo.get(r.away_team, r.away_conference),
             game_id=(str(int(r.game_id)) if pd.notna(getattr(r, "game_id", None))
                      else None),
+            kickoff_ts=(pd.Timestamp(r.start_date).isoformat()
+                        if pd.notna(r.start_date) else None),
             season=int(r.season) if pd.notna(r.season) else None,
             week=int(r.week) if pd.notna(r.week) else None,
             neutral_site=bool(r.neutral_site),
@@ -190,6 +203,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                       ("net_ppa_diff", "preseason_prior_diff", "elo_diff_with_hca")
                       if k in X.columns}
         preds.append(gp)
+
+    # Every row the ledger receives must carry a real kickoff instant. This is
+    # the pipeline's own guard, independent of ops/weekly.sh, because a manual
+    # run on game-day morning emitted 4 of 46 games when kickoff_ts was missing:
+    # the emitter guessed noon UTC (7am Central) and refused every day game.
+    no_ko = [p_ for p_ in preds if not p_.kickoff_ts]
+    if no_ko:
+        print(f"  ✗ {len(no_ko)} of {len(preds)} games have no kickoff time; "
+              f"refusing to write a slate the ledger would reject.")
+        print("    This means content_utils.GamePrediction is out of date — "
+              "replace it alongside this file.")
+        return 1
 
     date_label = dt.date.today().strftime("%B %d, %Y")
     md = build_newsletter(preds, date_label)
