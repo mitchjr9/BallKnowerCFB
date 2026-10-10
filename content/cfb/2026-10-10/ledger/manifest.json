@@ -1,0 +1,21 @@
+{
+  "schema_version": "1",
+  "batch": "cfb-2026-10-10",
+  "emitter": "ballknower.quad",
+  "generated_ts": "2026-10-10T12:44:27+00:00",
+  "record_count": 8,
+  "chain_head": "61355458b4f264c8c37ac759594a4f964398d39a0260606bba3cd595025236a1",
+  "code_commit": "9c4a7e8",
+  "config_hash": "60856fbf9715df4c",
+  "provenance_counts": {
+    "live": 8
+  },
+  "family_counts": {
+    "distributional": 4,
+    "probabilistic": 4
+  },
+  "tier_counts": {
+    "Lean": 1,
+    "Pass": 3
+  }
+}
